@@ -1,52 +1,45 @@
-/**
- * Created by deliaz on 11/09/16.
- */
 class StorageDriver {
-    constructor() {
+  /**
+   * Awaits the evaluation of a script in the inspected window.
+   * @param {string} script - The script to execute.
+   * @returns {Promise<any>} - A promise that resolves with the script's result.
+   */
+  _eval(script) {
+    return new Promise((resolve, reject) => {
+      chrome.devtools.inspectedWindow.eval(
+        script,
+        (result, isException) => {
+          if (isException) {
+            console.error("Evaluation Error:", isException);
+            return reject(isException);
+          }
+          resolve(result);
+        }
+      );
+    });
+  }
 
-    }
+  async getStoragesInfo() {
+    const script =
+      "(function() { return JSON.stringify({ls: localStorage.length, ss: sessionStorage.length}); })();";
+    const result = await this._eval(script);
+    return JSON.parse(result);
+  }
 
-    getStoragesInfo(callback) {
-        let extractString = '(function() {return JSON.stringify({ls: localStorage.length, ss: sessionStorage.length});})();';
+  async getStorageByName(name) {
+    const script = `(function() { return JSON.stringify(${name}); })();`;
+    const result = await this._eval(script);
+    return JSON.parse(result);
+  }
 
-        chrome.devtools.inspectedWindow.eval(extractString, (stringResult, isException) => {
-            if (!isException) {
-                callback(stringResult);
-            } else {
-                console.error(isException);
-            }
-        });
-    }
+  async removeKey(storageName, keyName) {
+    // Use JSON.stringify to handle keys with special characters
+    const script = `${storageName}.removeItem(${JSON.stringify(keyName)});`;
+    await this._eval(script);
+  }
 
-    getStorageByName(name, callback) {
-        let extractString = `(function() {return JSON.stringify(${name});})();`;
-
-        chrome.devtools.inspectedWindow.eval(extractString, (stringResult, isException) => {
-            if (!isException) {
-                callback(stringResult);
-            } else {
-                console.error(isException);
-            }
-        });
-    }
-
-    removeKey(storageName, keyName) {
-        let deleteString = `(function() {${storageName}.removeItem('${keyName}');})();`;
-
-        chrome.devtools.inspectedWindow.eval(deleteString, (stringResult, isException) => {
-            if (isException) {
-                console.error(isException);
-            }
-        });
-    }
-
-    clearStorage(storageName) {
-        let clearString = `(function() {${storageName}.clear();})();`;
-
-        chrome.devtools.inspectedWindow.eval(clearString, (stringResult, isException) => {
-            if (isException) {
-                console.error(isException);
-            }
-        });
-    }
+  async clearStorage(storageName) {
+    const script = `${storageName}.clear();`;
+    await this._eval(script);
+  }
 }

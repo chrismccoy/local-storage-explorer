@@ -1,12 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const kbdEl = document.querySelector('.shortcut');
-    if(!kbdEl) {
-        return;
-    }
+document.addEventListener("DOMContentLoaded", () => {
+  const kbdEl = document.querySelector(".shortcut");
+  if (!kbdEl) return;
 
-    if(navigator.platform.indexOf('Mac') > -1) {
-        kbdEl.innerText = 'Command+Option+I';
-    } else {
-        kbdEl.innerText = 'Control+Shift+I';
-    }
+  // Use modern userAgentData with a fallback for compatibility
+  const isMac =
+    navigator.userAgentData?.platform.toLowerCase() === "macos" ||
+    navigator.platform.toLowerCase().includes("mac");
+
+  kbdEl.textContent = isMac ? "Command+Option+I" : "Control+Shift+I";
 });

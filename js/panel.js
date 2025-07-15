@@ -2,473 +2,425 @@
  * Application class for DevTools panel
  */
 class WebStorageExplorer {
-    constructor() {
-        this.storageDriver = new StorageDriver();
-        this.storage = new Map();
-        this.constants = {};
-        this.el = {};
-        this.settings = {};
-        this.currentStorageName = DEFAULT_STORAGE;
+  storageDriver = new StorageDriver();
+  storage = new Map();
+  keyList = [];
+  constants = {};
+  el = {};
+  currentStorageName = DEFAULT_STORAGE;
+  isNavFloating = false;
+  lastShownKey = "";
+  lastShownKeyIndex = -1;
+  loadedByUpdate = false;
 
-        this.isNavFloating = false;
-        this.lastShownKey = '';
-        this.loadedByUpdate = false;
-        this.lastShownKeyIndex = -1;
+  constructor() {
+    // The 'ready' event ensures the DOM is fully loaded
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => this.init());
+    } else {
+      this.init();
     }
+  }
 
-    init() {
-        this.loadSettings();
-        this.selectElements();
-        this.retrieveStorage(this.currentStorageName);
+  async init() {
+    this._loadSettings();
+    this._selectElements();
+    this._setHandlers();
+    this._createConstants();
+    this.updateUI();
+    await this.update();
+  }
 
-        this.setHandlers();
-        this.createConstants();
-        this.updateUI();
+  _loadSettings() {
+    this.currentStorageName =
+      localStorage.getItem("storage") || DEFAULT_STORAGE;
+  }
+
+  _selectElements() {
+    const qs = (selector) => document.querySelector(selector);
+    this.el = {
+      body: document.body,
+      window: window,
+      valueView: qs(".js-value-view"),
+      initialText: qs(".js-initial-text"),
+      keyList: qs(".js-key-list"),
+      selectStorage: qs(".js-select-storage"),
+      reloadBtn: qs(".js-reload-btn"),
+      removeBtn: qs(".js-remove-btn"),
+      showNavBtn: qs(".js-show-nav"),
+      pageOverlay: qs(".js-page-overlay"),
+      navBlock: qs(".js-nav-block"),
+      showSubnavBtn: qs(".js-show-subnav"),
+      subnavMenu: qs(".js-subnav-menu"),
+      footer: qs(".js-footer"),
+      valueInfo: qs(".js-value-info"),
+      optionsPageBtn: qs(".js-options-page-button"),
+      clearStorageBtn: qs(".js-clear-storage-button"),
+      clearStorageConfirmBtn: qs(".js-clear-storage-confirm-button"),
+      jsonViewTools: qs(".js-json-view-tools"),
+    };
+  }
+
+  async retrieveStorage(storageType) {
+    this.currentStorageName = ["localStorage", "sessionStorage"].includes(
+      storageType
+    )
+      ? storageType
+      : "localStorage";
+
+    const startTime = performance.now();
+    try {
+      const [storageInfo, parsedStorage] = await Promise.all([
+        this.storageDriver.getStoragesInfo(),
+        this.storageDriver.getStorageByName(this.currentStorageName),
+      ]);
+
+      this._showStorageInfo(storageInfo);
+      this._parseAndRenderStorage(parsedStorage, startTime);
+    } catch (e) {
+      console.error("Cannot retrieve or parse storage: ", e);
+      this.el.initialText.textContent = `Error loading ${this.currentStorageName}.`;
+      this.el.initialText.style.display = "block";
     }
+  }
 
-    loadSettings() {
-        this.currentStorageName = localStorage.getItem('storage') || DEFAULT_STORAGE;
-    }
+  _parseAndRenderStorage(parsedStorage, startTime) {
+    this.storage.clear();
+    this.keyList = Object.keys(parsedStorage);
 
-    selectElements() {
-        this.el = {
-            body: $('body'),
-            window: $(window),
-            linkTheme: $('.js-link-theme'),
-
-            valueView: $('.js-value-view'),
-            initialText: $('.js-initial-text'),
-
-            keyList: $('.js-key-list'),
-            selectStorage: $('.js-select-storage'),
-            reloadBtn: $('.js-reload-btn'),
-            removeBtn: $('.js-remove-btn'),
-            showNavBtn: $('.js-show-nav'),
-            pageOverlay: $('.js-page-overlay'),
-            navBlock: $('.js-nav-block'),
-            showSubnavBtn: $('.js-show-subnav'),
-            subnavMenu: $('.js-subnav-menu'),
-            footer: $('.js-footer'),
-            valueInfo: $('.js-value-info'),
-            optionsPageBtn: $('.js-options-page-button'),
-
-            clearStorageBtn: $('.js-clear-storage-button'),
-            clearStorageConfirmBtn: $('.js-clear-storage-confirm-button'),
-            
-            jsonViewTools: $('.js-json-view-tools')
-        };
-    }
-
-    getStorageInfo() {
-        this.storageDriver.getStoragesInfo(this.showStorageInfo.bind(this));
-    }
-
-    showStorageInfo(storageInfo) {
-        try {
-            let parsedInfo = JSON.parse(storageInfo);
-
-            if (typeof parsedInfo.ls !== 'undefined' && typeof parsedInfo.ss !== 'undefined') {
-                let lsOption = this.el.selectStorage.find('option[value="localStorage"]');
-                let ssOption = this.el.selectStorage.find('option[value="sessionStorage"]');
-
-                lsOption.text(`localStorage [${parsedInfo.ls}]`);
-                ssOption.text(`sessionStorage [${parsedInfo.ss}]`);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    retrieveStorage(storageType) {
-        this.getStorageInfo();
-        this.currentStorageName = ['localStorage', 'sessionStorage'].indexOf(storageType) !== -1 ? storageType : 'localStorage';
-
-        this.startLoadTime = performance.now();
-        this.storageDriver.getStorageByName(this.currentStorageName, this.parseStorage.bind(this));
-    }
-
-    removeKeyFromStorage(key) {
-        if (this.storage.has(key)) {
-            this.storageDriver.removeKey(this.currentStorageName, key);
-        }
-    }
-
-    parseStorage(stringStorage) {
-        try {
-            let parsedStorage = JSON.parse(stringStorage);
-            this.keyList = Object.keys(parsedStorage);
-
-            if (this.keyList.length) {
-                this.keyList.forEach(key => {
-                    let rawValue = parsedStorage[key];
-                    let parsedValue = WebStorageExplorer.tryParseJSON(rawValue);
-                    parsedValue = parsedValue ? parsedValue : rawValue;
-
-                    this.storage.set(key,{
-                        value: parsedValue,
-                        len: rawValue.length,
-                        type: WebStorageExplorer.guessType(parsedValue)
-                    });
-                });
-
-                this.renderStorageKeys();
-            } else {
-                this.clear();
-            }
-
-            this.onAfterParse();
-        } catch (e) {
-            console.error('Cannot parse storage: ', e);
-        }
-    }
-
-
-    renderStorageKeys() {
-        let linksTemplate = this.keyList.reduce((tpl, key) => {
-            tpl += `
-            <li class="b-keys-menu__item">
-                <a href="#!" class="b-keys-menu__link js-select-key" data-key="${key}" title="${key}">
-                    <i class="fa fa-${ICON_TYPE[this.storage.get(key).type]} b-keys-menu__type-icon"></i>
-                    <span>${key}</span>
-                </a>
-            </li>
-            `;
-
-            return tpl;
-        }, '');
-
-        this.el.keyList.html(linksTemplate);
-
-        this.onAfterRender();
-    }
-
-
-    onAfterRender() {
-        this.updateFooterPosition();
-        this.checkForLastKey();
-    }
-
-    onAfterParse() {
-        this.showInitialText();
-    }
-
-    onAfterShowKey() {
-        this.el.initialText.hide();
-    }
-
-
-    showInitialText() {
-        if(!this.lastShownKey) {
-            if(this.storage.size) {
-                let loadTime = performance.now() - this.startLoadTime;
-                this.el.initialText.text(`loaded ${this.storage.size} items in ${loadTime.toFixed(1)}ms`);
-            } else {
-                this.el.initialText.text(`${this.currentStorageName} is empty`);
-            }
-            this.el.initialText.show();
-        } else {
-            this.el.initialText.hide();
-        }
-    }
-
-
-    setHandlers() {
-        let self = this;
-
-        this.el.keyList.on('click', '.js-select-key', function (e) {
-            e.preventDefault();
-
-            $('.js-select-key').removeClass('b-keys-menu__link_active');
-            $(this).addClass('b-keys-menu__link_active');
-
-            let key = $(this).data('key');
-
-            self.showValueForKey(key);
-            if (self.isNavFloating) {
-                self.toggleNavView();
-            }
-
-            self.lastShownKeyIndex = self.keyList.indexOf(key);
+    if (this.keyList.length) {
+      this.keyList.forEach((key) => {
+        const rawValue = parsedStorage[key];
+        const parsedValue = WebStorageExplorer.tryParseJSON(rawValue) ?? rawValue;
+        this.storage.set(key, {
+          value: parsedValue,
+          len: rawValue.length,
+          type: WebStorageExplorer.guessType(parsedValue),
         });
-
-        this.el.selectStorage.on('change', e => {
-            let storageType = $(e.target).val();
-
-            this.clear();
-            this.lastShownKey = '';
-            this.retrieveStorage(storageType);
-        });
-
-        this.el.reloadBtn.on('click', e => {
-            e.preventDefault();
-
-            this.clear(true);
-            this.update();
-        });
-
-        this.el.removeBtn.on('click', e => {
-            e.preventDefault();
-
-            if(this.lastShownKey !== '') {
-                this.removeKeyFromStorage(this.lastShownKey);
-
-                this.lastShownKey = '';
-
-                this.clear(true);
-                this.update();
-            }
-        });
-
-        this.el.showNavBtn.on('click', e => {
-            e.preventDefault();
-            this.toggleNavView();
-        });
-
-        this.el.pageOverlay.on('click', () => {
-            this.toggleNavView();
-        });
-
-        this.el.showSubnavBtn
-            .on('click', function () {
-                self.el.subnavMenu.toggleClass('b-subnav-menu_shown');
-                $(this).toggleClass('b-header__header-btn_active');
-
-                return false;
-            })
-            .on(':hide', function() {
-                self.el.subnavMenu.removeClass('b-subnav-menu_shown');
-                $(this).removeClass('b-header__header-btn_active');
-            });
-
-        this.el.window.on('resize', () => {
-            this.updateFooterPosition();
-        });
-
-        this.el.clearStorageBtn.on('click', e => {
-            e.preventDefault();
-            this.el.clearStorageBtn.toggleClass('b-subnav-menu__link_activated');
-
-            this.el.clearStorageBtn.on('blur', () => {
-                this.el.clearStorageBtn
-                    .off('blur')
-                    .removeClass('b-subnav-menu__link_activated');
-            });
-        });
-
-        this.el.clearStorageConfirmBtn.on('click', e => {
-            e.preventDefault();
-            this.storageDriver.clearStorage(this.currentStorageName);
-            this.el.showSubnavBtn.trigger(':hide');
-
-            this.clear();
-            this.update();
-        });
-
-        this.el.body.on('click', e => {
-            if (!$.contains(this.el.showSubnavBtn[0], e.target) || e.target === this.el.showSubnavBtn[0]) {
-                if(!$.contains(this.el.subnavMenu[0], e.target) && this.el.subnavMenu.is('.b-subnav-menu_shown')) {
-                    this.el.showSubnavBtn.trigger(':hide');
-                }
-            }
-        });
-
-
-        this.el.optionsPageBtn.on('click', e => {
-            e.preventDefault();
-            this.el.showSubnavBtn.trigger(':hide');
-
-            window.open(chrome.runtime.getURL('options.html?show_header'));
-        });
-
-        // Open links from json view in a new tab
-        this.el.valueView.on('click', 'a[href]', function(e) {
-            e.preventDefault();
-            let href = $(this).attr('href');
-            window.open(href);
-        });
-        
-        this.el.jsonViewTools.on('click', 'button', function() {
-            let $thisBtn = $(this);
-
-            switch($thisBtn.data('jsonViewAction').toLowerCase()) {
-                case 'collapse':
-                    self.el.valueView.JSONView('collapse');
-                    break;
-                case 'expand':
-                    self.el.valueView.JSONView('expand');
-                    break;
-                case 'toggle':
-                    self.el.valueView.JSONView('toggle', $thisBtn.data('jsonViewLevel') || 1);
-                    break;
-            }
-        });
+      });
+      this._renderStorageKeys();
+    } else {
+      this.clear();
     }
 
-    createConstants() {
-        this.constants.footerHeight = this.el.footer.outerHeight(true);
-        this.constants.storageSelectHeight = this.el.selectStorage.outerHeight(true);
-        Object.freeze(this.constants);
+    const loadTime = performance.now() - startTime;
+    this._showInitialText(loadTime);
+    this._updateFooterPosition();
+    this._checkForLastKey();
+  }
+
+  _renderStorageKeys() {
+    const linksTemplate = this.keyList
+      .map((key) => {
+        const { type } = this.storage.get(key);
+        const icon = ICON_TYPE[type] || "question";
+        // Basic HTML escaping for key
+        const escapedKey = key
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+        return `
+        <li class="b-keys-menu__item">
+            <a href="#" class="b-keys-menu__link js-select-key" data-key="${escapedKey}" title="${escapedKey}">
+                <i class="fa fa-${icon} b-keys-menu__type-icon"></i>
+                <span>${escapedKey}</span>
+            </a>
+        </li>`;
+      })
+      .join("");
+
+    this.el.keyList.innerHTML = linksTemplate;
+  }
+
+  _showStorageInfo(storageInfo) {
+    if (storageInfo && storageInfo.ls !== undefined) {
+      const lsOption = this.el.selectStorage.querySelector(
+        'option[value="localStorage"]'
+      );
+      const ssOption = this.el.selectStorage.querySelector(
+        'option[value="sessionStorage"]'
+      );
+      lsOption.textContent = `localStorage [${storageInfo.ls}]`;
+      ssOption.textContent = `sessionStorage [${storageInfo.ss}]`;
     }
+  }
 
-    updateUI() {
-        this.el.selectStorage.val(this.currentStorageName);
-    }
+  _setHandlers() {
+    // Event delegation for key list clicks
+    this.el.keyList.addEventListener("click", (e) => {
+      const link = e.target.closest(".js-select-key");
+      if (!link) return;
 
-    update() {
-        this.loadedByUpdate = true;
-        this.retrieveStorage(this.currentStorageName);
-    }
+      e.preventDefault();
+      this.el
+        .keyList.querySelector(".b-keys-menu__link_active")
+        ?.classList.remove("b-keys-menu__link_active");
+      link.classList.add("b-keys-menu__link_active");
 
-    toggleNavView() {
-        this.el.navBlock.toggleClass('b-nav_shown');
-        this.el.pageOverlay.toggleClass('b-page-overlay_hidden');
-
-        this.isNavFloating = this.el.navBlock.hasClass('b-nav_shown');
-    }
-
-    clear(shouldSaveLastShownKey=false) {
-        this.storage.clear();
-
-        if(!shouldSaveLastShownKey) {
-            this.lastShownKey = '';
-            this.lastShownKeyIndex = -1;
-        }
-
-        this.el.keyList.empty();
-        this.el.valueView.empty();
-        this.el.valueInfo.empty();
-    }
-
-    showValueForKey(key) {
-        let val = this.storage.get(key).value;
-        this.el.valueView.parent().scrollTop(0);
-
-        if (typeof val === 'object') {
-            this.el.valueView
-                .JSONView(val, {collapsed: false})
-                .addClass('b-value-view__with-tools');
-            this.el.jsonViewTools.removeClass('b-json-view-tools_hidden');
-        } else {
-            this.el.valueView
-                .removeClass('b-value-view__with-tools')
-                .text(val);
-            this.el.jsonViewTools.addClass('b-json-view-tools_hidden');
-        }
-
-        this.lastShownKey = key;
-
-        this.showInfoForValue(key);
-        this.onAfterShowKey();
-    }
-
-    showInfoForValue(key) {
-        let val = this.storage.get(key);
-        let infoString = `
-            <span class="b-value-info__property">Type: <b>${val.type}</b></span>
-            <span class="b-value-info__property">Length: <b>${val.len}</b></span>
-        `;
-
-        this.el.valueInfo.html(infoString);
-    }
-
-    checkForLastKey() {
-        if (this.loadedByUpdate) {
-            this.loadedByUpdate = false;
-
-            if (this.lastShownKey) {
-                this.tryToShowLastKey();
-            } else {
-                this.tryToSelectNextKey();
-            }
-        }
-    }
-
-    tryToShowLastKey() {
-        if (this.lastShownKey && this.storage.has(this.lastShownKey)) {
-            this.showValueForKey(this.lastShownKey);
-            $(`.js-select-key[data-key="${this.lastShownKey}"]`).toggleClass('b-keys-menu__link_active');
-        }
-    }
-
-    tryToSelectNextKey() {
-        if (this.lastShownKeyIndex !== -1 && this.keyList.length) {
-            this.lastShownKeyIndex -= this.lastShownKeyIndex <= this.keyList.length - 1 ? 0 : 1;
-            let key = this.keyList[this.lastShownKeyIndex];
-            this.showValueForKey(key);
-            $(`.js-select-key[data-key="${key}"]`).toggleClass('b-keys-menu__link_active');
-        }
-    }
-
-    updateFooterPosition() {
-        if (this.el.keyList.height() >= this.el.window.height() - this.constants.footerHeight - this.constants.storageSelectHeight) {
-            this.el.footer.addClass('b-nav-footer_no-bottom');
-        } else {
-            this.el.footer.removeClass('b-nav-footer_no-bottom');
-        }
-    }
-
-	/**
-	 * Public function when search on search event in devtools
-	 * @param action {string} Performed action
-	 * @param keyword {string} Searched keyword
-	 */
-	handleSearch(action, keyword) {
-		this.el.valueView.unmark();
-		switch (action) {
-			case 'performSearch':
-				this.el.valueView.mark(keyword);
-				break;
-			case 'cancelSearch':
-				// no action needed because marks already was cleared: see line 1 of this function
-				break;
-		}
-	}
-
-    static tryParseJSON(strJSON) {
-        let res;
-        try {
-            res = JSON.parse(strJSON);
-        } catch (err) {
-            res = null;
-        }
-
-        return res;
-    }
-
-    static guessType(val) {
-        if (typeof val === 'object') {
-            if (Array.isArray(val)) {
-                return 'array';
-            }
-            if (val === null) {
-                return 'null';
-            }
-            return 'object';
-        }
-
-        if (!isNaN(parseFloat(val)) && isFinite(val)) {
-            return 'number';
-        }
-
-        if (typeof val === 'boolean') {
-            return 'boolean';
-        }
-
-        if (typeof val === 'string') {
-            return 'string';
-        }
-
-        return 'other';
-    }
-}
-
-// Tiny UMD
-if(typeof exports !== 'undefined') {
-    module.exports = WebStorageExplorer;
-} else {
-    $(document).ready(() => {
-        let App = new WebStorageExplorer();
-        window.App = App;
-        App.init();
+      const key = link.dataset.key;
+      this.showValueForKey(key);
+      if (this.isNavFloating) {
+        this.toggleNavView();
+      }
+      this.lastShownKeyIndex = this.keyList.indexOf(key);
     });
+
+    this.el.selectStorage.addEventListener("change", async (e) => {
+      this.clear();
+      this.lastShownKey = "";
+      await this.retrieveStorage(e.target.value);
+    });
+
+    this.el.reloadBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      this.clear(true);
+      await this.update();
+    });
+
+    this.el.removeBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (this.lastShownKey) {
+        await this.storageDriver.removeKey(
+          this.currentStorageName,
+          this.lastShownKey
+        );
+        this.clear(true);
+        await this.update();
+      }
+    });
+
+    this.el.showNavBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.toggleNavView();
+    });
+
+    this.el.pageOverlay.addEventListener("click", () => this.toggleNavView());
+
+    this.el.showSubnavBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.el.subnavMenu.classList.toggle("b-subnav-menu_shown");
+      e.currentTarget.classList.toggle("b-header__header-btn_active");
+    });
+
+    this.el.body.addEventListener("click", () => {
+      if (this.el.subnavMenu.classList.contains("b-subnav-menu_shown")) {
+        this.el.subnavMenu.classList.remove("b-subnav-menu_shown");
+        this.el.showSubnavBtn.classList.remove("b-header__header-btn_active");
+      }
+    });
+
+    this.el.clearStorageBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.currentTarget.classList.toggle("b-subnav-menu__link_activated");
+    });
+
+    this.el.clearStorageConfirmBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await this.storageDriver.clearStorage(this.currentStorageName);
+      this.el.subnavMenu.classList.remove("b-subnav-menu_shown");
+      this.clear();
+      await this.update();
+    });
+
+    this.el.optionsPageBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.open(chrome.runtime.getURL("options.html?show_header"));
+    });
+
+    this.el.valueView.addEventListener("click", (e) => {
+      const link = e.target.closest("a[href]");
+      if (link) {
+        e.preventDefault();
+        window.open(link.getAttribute("href"));
+      }
+    });
+
+    this.el.jsonViewTools.addEventListener("click", (e) => {
+      const button = e.target.closest("button[data-json-view-action]");
+      if (!button) return;
+
+      const action = button.dataset.jsonViewAction.toLowerCase();
+      const level = button.dataset.jsonViewLevel || 1;
+      const $valueView = $(this.el.valueView); // jQuery needed for plugin
+
+      switch (action) {
+        case "collapse":
+          $valueView.JSONView("collapse");
+          break;
+        case "expand":
+          $valueView.JSONView("expand");
+          break;
+        case "toggle":
+          $valueView.JSONView("toggle", level);
+          break;
+      }
+    });
+
+    this.el.window.addEventListener("resize", () =>
+      this._updateFooterPosition()
+    );
+  }
+
+  _createConstants() {
+    this.constants.footerHeight = this.el.footer.offsetHeight;
+    this.constants.storageSelectHeight = this.el.selectStorage.offsetHeight;
+    Object.freeze(this.constants);
+  }
+
+  updateUI() {
+    this.el.selectStorage.value = this.currentStorageName;
+  }
+
+  async update() {
+    this.loadedByUpdate = true;
+    await this.retrieveStorage(this.currentStorageName);
+  }
+
+  toggleNavView() {
+    this.el.navBlock.classList.toggle("b-nav_shown");
+    this.el.pageOverlay.classList.toggle("b-page-overlay_hidden");
+    this.isNavFloating = this.el.navBlock.classList.contains("b-nav_shown");
+  }
+
+  clear(shouldSaveLastShownKey = false) {
+    this.storage.clear();
+    if (!shouldSaveLastShownKey) {
+      this.lastShownKey = "";
+      this.lastShownKeyIndex = -1;
+    }
+    this.el.keyList.innerHTML = "";
+    this.el.valueView.innerHTML = "";
+    this.el.valueInfo.innerHTML = "";
+    this.el.jsonViewTools.classList.add("b-json-view-tools_hidden");
+  }
+
+  showValueForKey(key) {
+    const data = this.storage.get(key);
+    if (!data) return;
+
+    const { value, type, len } = data;
+    this.el.valueView.parentElement.scrollTop = 0;
+    this.el.initialText.style.display = "none";
+
+    const $valueView = $(this.el.valueView); // jQuery needed for plugin
+
+    if (type === "object" || type === "array") {
+      $valueView.JSONView(value, { collapsed: false });
+      this.el.valueView.classList.add("b-value-view__with-tools");
+      this.el.jsonViewTools.classList.remove("b-json-view-tools_hidden");
+    } else {
+      $valueView.text(value); // Use .text() to prevent HTML injection
+      this.el.valueView.classList.remove("b-value-view__with-tools");
+      this.el.jsonViewTools.classList.add("b-json-view-tools_hidden");
+    }
+
+    this.lastShownKey = key;
+    this._showInfoForValue(type, len);
+  }
+
+  _showInfoForValue(type, len) {
+    this.el.valueInfo.innerHTML = `
+      <span class="b-value-info__property">Type: <b>${type}</b></span>
+      <span class="b-value-info__property">Length: <b>${len}</b></span>
+    `;
+  }
+
+  _checkForLastKey() {
+    if (this.loadedByUpdate) {
+      this.loadedByUpdate = false;
+      if (this.lastShownKey && this.storage.has(this.lastShownKey)) {
+        this._tryToShowLastKey();
+      } else {
+        this._tryToSelectNextKey();
+      }
+    }
+  }
+
+  _tryToShowLastKey() {
+    this.showValueForKey(this.lastShownKey);
+    const link = this.el.keyList.querySelector(
+      `.js-select-key[data-key="${this.lastShownKey}"]`
+    );
+    link?.classList.add("b-keys-menu__link_active");
+  }
+
+  _tryToSelectNextKey() {
+    if (this.lastShownKeyIndex !== -1 && this.keyList.length) {
+      this.lastShownKeyIndex = Math.min(
+        this.lastShownKeyIndex,
+        this.keyList.length - 1
+      );
+      const key = this.keyList[this.lastShownKeyIndex];
+      if (key) {
+        this.showValueForKey(key);
+        const link = this.el.keyList.querySelector(
+          `.js-select-key[data-key="${key}"]`
+        );
+        link?.classList.add("b-keys-menu__link_active");
+      }
+    }
+  }
+
+  _showInitialText(loadTime) {
+    if (!this.lastShownKey) {
+      if (this.storage.size) {
+        this.el.initialText.textContent = `loaded ${
+          this.storage.size
+        } items in ${loadTime.toFixed(1)}ms`;
+      } else {
+        this.el.initialText.textContent = `${this.currentStorageName} is empty`;
+      }
+      this.el.initialText.style.display = "block";
+    } else {
+      this.el.initialText.style.display = "none";
+    }
+  }
+
+  _updateFooterPosition() {
+    const isOverflowing =
+      this.el.keyList.offsetHeight >=
+      window.innerHeight -
+        this.constants.footerHeight -
+        this.constants.storageSelectHeight;
+    this.el.footer.classList.toggle("b-nav-footer_no-bottom", isOverflowing);
+  }
+
+  handleSearch(action, keyword) {
+    const $valueView = $(this.el.valueView); // jQuery needed for mark.js
+    $valueView.unmark();
+    if (action === "performSearch" && keyword) {
+      $valueView.mark(keyword);
+    }
+  }
+
+  static tryParseJSON(strJSON) {
+    try {
+      // Avoid parsing simple numbers and booleans that are valid JSON
+      if (
+        !strJSON.startsWith("{") &&
+        !strJSON.startsWith("[") &&
+        !strJSON.startsWith('"')
+      ) {
+        return null;
+      }
+      return JSON.parse(strJSON);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  static guessType(val) {
+    if (val === null) return "null";
+    if (Array.isArray(val)) return "array";
+    const type = typeof val;
+    if (type === "object") return "object";
+    if (type === "boolean") return "boolean";
+    if (type === "number") return "number";
+    if (type === "string") return "string";
+    return "other";
+  }
 }
+
+// Initialize the app
+window.App = new WebStorageExplorer();

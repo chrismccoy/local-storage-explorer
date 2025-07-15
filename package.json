@@ -1,13 +1,13 @@
 {
   "name": "chrome-localstorage-explorer",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "description": "Developer tool for exploring localStorage and sessionStorage which parses JSON values",
   "main": "manifest.json",
   "scripts": {
     "test": "mocha tests",
     "lint": "eslint js/**/*.js"
   },
-  "author": "Deliaz",
+  "author": "deliaz,chrismccoy",
   "license": "MIT",
   "dependencies": {
     "font-awesome": "^4.7.0",

@@ -94,15 +94,6 @@ gulp.task('js:app', () => {
         .pipe(gulp.dest(BUILD_DIR + 'js'));
 });
 
-gulp.task('js:ga', () => {
-    const shouldReplace = buildConfig && !!buildConfig.GA_TRACKING_ID;
-
-    return gulp.src('js/ga.js')
-        .pipe(gulpif(shouldReplace, replace('UA-XXXXX-XX', buildConfig.GA_TRACKING_ID)))
-        .pipe(gulp.dest(BUILD_DIR + 'js'));
-
-});
-
 gulp.task('js:vendor', () => {
     return gulp.src([
         'node_modules/jquery/dist/jquery.min.js',
@@ -126,6 +117,6 @@ module.exports.default = gulp.series(
     gulp.parallel('copy', 'fonts', 'images'),
     'css:app',
     'css:vendor',
-    gulp.parallel('js:app','js:ga','js:vendor'),
+    gulp.parallel('js:app','js:vendor'),
     'html:replace',
     'zip');

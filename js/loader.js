@@ -10,7 +10,7 @@ chrome.devtools.panels.create('Local Storage Explorer', null, 'panel.html', pane
 
         if(!appShownFirst) {
             appShownFirst = true;
-			panel.onSearch.addListener(appWindow.App.handleSearch.bind(appWindow.App));
+		panel.onSearch.addListener(appWindow.App.handleSearch.bind(appWindow.App));
         }
 
     });

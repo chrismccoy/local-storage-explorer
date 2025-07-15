@@ -1,90 +1,73 @@
 class Options {
-    constructor() {
-        this.settings = {};
-        this.el = {};
+  el = {};
+  settings = {};
+
+  constructor() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => this.init());
+    } else {
+      this.init();
     }
+  }
 
-    init() {
-        this.selectElements();
-        this.showHeader();
-        this.loadSettings();
-        this.showSettings();
-        this.startHandlers();
+  init() {
+    this._selectElements();
+    this._showHeader();
+    this._loadSettings();
+    this._showSettings();
+    this._startHandlers();
+  }
+
+  _selectElements() {
+    const qs = (selector) => document.querySelector(selector);
+    this.el = {
+      storageSelect: qs(".js-select-storage"),
+      themeSelect: qs(".js-select-theme"),
+      saveBtn: qs(".js-save-button"),
+      header: qs(".js-options-header"),
+    };
+  }
+
+  _showHeader() {
+    if (new URLSearchParams(window.location.search).has("show_header")) {
+      this.el.header.classList.remove("b-container__main-header_hidden");
     }
+  }
 
-    selectElements() {
-        let qs = document.querySelector.bind(document);
+  _loadSettings() {
+    this.settings = {
+      theme: localStorage.getItem("theme") || DEFAULT_THEME_NAME,
+      storage: localStorage.getItem("storage") || DEFAULT_STORAGE,
+    };
+  }
 
-        this.el = {
-            storageSelect: qs('.js-select-storage'),
-            themeSelect: qs('.js-select-theme'),
-            saveBtn: qs('.js-save-button'),
-            header: qs('.js-options-header')
-        };
-    }
+  _showSettings() {
+    this.el.storageSelect.value = this.settings.storage;
+    this.el.themeSelect.value = this.settings.theme;
+  }
 
+  _startHandlers() {
+    this.el.saveBtn.addEventListener("click", () => {
+      const newSettings = {
+        storage: this.el.storageSelect.value,
+        theme: this.el.themeSelect.value,
+      };
 
-    /**
-     * Show main header if 'show_header' flag set in url
-     */
-    showHeader() {
-        if(window.location.search.includes('show_header')) {
-            this.el.header.classList.remove('b-container__main-header_hidden');
-        }
-    }
+      localStorage.setItem("storage", newSettings.storage);
+      localStorage.setItem("theme", newSettings.theme);
 
-    /**
-     * Load saved settings of set defaults instead
-     */
-    loadSettings() {
-        this.settings = {
-            theme: localStorage.getItem('theme') || DEFAULT_THEME_NAME,
-            storage: localStorage.getItem('storage') || DEFAULT_STORAGE
-        };
-    }
+      // Animate button
+      this.el.saveBtn.disabled = true;
+      this.el.saveBtn.textContent = "Saved";
+      this.el.saveBtn.classList.add("b-options__button-save_animated");
 
-
-    /**
-     * Show loaded settings in UI
-     */
-    showSettings() {
-        this.el.storageSelect.value = this.settings.storage;
-        this.el.themeSelect.value = this.settings.theme;
-    }
-
-    startHandlers() {
-
-        this.el.saveBtn.addEventListener('click', () => {
-            this.settings = {
-                storage: this.el.storageSelect[this.el.storageSelect.selectedIndex].value,
-                theme: this.el.themeSelect[this.el.themeSelect.selectedIndex].value,
-            };
-
-            // Save storage
-            localStorage.setItem('storage', this.settings.storage);
-            localStorage.setItem('theme', this.settings.theme);
-
-
-            // Animate button
-            this.el.saveBtn.setAttribute('disabled', 'disabled');
-            this.el.saveBtn.innerText = 'Saved';
-            if (this.el.saveBtn.dataset.buttonTimer) {
-                clearTimeout(this.el.saveBtn.dataset.buttonTimer);
-                this.el.saveBtn.classList.remove('b-options__button-save_animated');
-            }
-
-            this.el.saveBtn.classList.add('b-options__button-save_animated');
-            this.el.saveBtn.dataset.buttonTimer = setTimeout(() => {
-                this.el.saveBtn.classList.remove('b-options__button-save_animated');
-                this.el.saveBtn.removeAttribute('disabled');
-                this.el.saveBtn.innerText = 'Save';
-            }, BTN_HIGHLIGHT_TIMEOUT);
-        });
-    }
-
+      setTimeout(() => {
+        this.el.saveBtn.classList.remove("b-options__button-save_animated");
+        this.el.saveBtn.disabled = false;
+        this.el.saveBtn.textContent = "Save";
+      }, BTN_HIGHLIGHT_TIMEOUT);
+    });
+  }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    let optionsInstance = new Options();
-    optionsInstance.init();
-});
+new Options();
