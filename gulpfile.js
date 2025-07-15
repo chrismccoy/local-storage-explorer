@@ -87,8 +87,7 @@ gulp.task('html:replace', () => {
 
 gulp.task('js:app', () => {
     return gulp.src([
-        'js/**',
-        '!js/ga.js'
+        'js/**'
     ])
         .pipe(uglify())
         .pipe(gulp.dest(BUILD_DIR + 'js'));

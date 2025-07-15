@@ -154,8 +154,7 @@ class WebStorageExplorer {
 
       e.preventDefault();
       this.el
-        .keyList.querySelector(".b-keys-menu__link_active")
-        ?.classList.remove("b-keys-menu__link_active");
+        .keyList.querySelector(".b-keys-menu__link_active").classList.remove("b-keys-menu__link_active");
       link.classList.add("b-keys-menu__link_active");
 
       const key = link.dataset.key;
@@ -342,7 +341,7 @@ class WebStorageExplorer {
     const link = this.el.keyList.querySelector(
       `.js-select-key[data-key="${this.lastShownKey}"]`
     );
-    link?.classList.add("b-keys-menu__link_active");
+    link.classList.add("b-keys-menu__link_active");
   }
 
   _tryToSelectNextKey() {
@@ -357,7 +356,7 @@ class WebStorageExplorer {
         const link = this.el.keyList.querySelector(
           `.js-select-key[data-key="${key}"]`
         );
-        link?.classList.add("b-keys-menu__link_active");
+        link.classList.add("b-keys-menu__link_active");
       }
     }
   }
