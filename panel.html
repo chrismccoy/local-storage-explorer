@@ -1,104 +1,134 @@
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
 
     <!-- build:vendor-style -->
-    <link rel="stylesheet" href="node_modules/jquery-jsonview/dist/jquery.jsonview.css"/>
-    <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css"/>
+    <link
+      rel="stylesheet"
+      href="node_modules/jquery-jsonview/dist/jquery.jsonview.css"
+    />
+    <link
+      rel="stylesheet"
+      href="node_modules/font-awesome/css/font-awesome.min.css"
+    />
     <!-- endbuild -->
 
-    <link rel="stylesheet" href="css/style.css"/>
-    <link rel="stylesheet" href="css/responsive.css"/>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
 
     <!-- For theme insert -->
-    <link rel="stylesheet" href="" class="js-link-theme"/>
+    <link rel="stylesheet" href="" class="js-link-theme" />
 
     <!-- Constants -->
     <script src="js/const.js"></script>
 
     <!-- Load theme -->
     <script src="js/theme-loader.js"></script>
-</head>
-<body>
+  </head>
+  <body>
+    <div class="b-page-overlay b-page-overlay_hidden js-page-overlay"></div>
 
-<div class="b-page-overlay b-page-overlay_hidden js-page-overlay"></div>
-
-
-<header class="b-header">
-    <a href="#" class="b-header__header-btn b-header__header-btn_left js-show-nav">
+    <header class="b-header">
+      <a href="#" class="b-header__header-btn b-header__header-btn_left js-show-nav">
         <i class="fa fa-2x fa-bars"></i>
-    </a>
+      </a>
 
-    <a href="#" class="b-header__header-btn b-header__header-btn_right js-show-subnav">
+      <a
+        href="#"
+        class="b-header__header-btn b-header__header-btn_right js-show-subnav"
+      >
         <i class="fa fa-2x fa-cog"></i>
-    </a>
+      </a>
 
-    <ul class="b-subnav-menu js-subnav-menu">
+      <ul class="b-subnav-menu js-subnav-menu">
         <li class="b-subnav-menu__item">
-            <a href="#!" class="b-subnav-menu__confirm-link js-clear-storage-confirm-button">&times;</a>
-            <a href="#!" class="b-subnav-menu__link b-subnav-menu__link_confirm-animated js-clear-storage-button">Clear storage</a>
+          <a
+            href="#!"
+            class="b-subnav-menu__confirm-link js-clear-storage-confirm-button"
+            >&times;</a
+          >
+          <a
+            href="#!"
+            class="b-subnav-menu__link b-subnav-menu__link_confirm-animated js-clear-storage-button"
+            >Clear storage</a
+          >
         </li>
-        <li class="b-subnav-menu__item"><span class="b-subnav-menu__separator"></span></li>
-        <li class="b-subnav-menu__item"><a href="#!" class="b-subnav-menu__link js-options-page-button">Options</a></li>
-    </ul>
+        <li class="b-subnav-menu__item">
+          <span class="b-subnav-menu__separator"></span>
+        </li>
+        <li class="b-subnav-menu__item">
+          <a href="#!" class="b-subnav-menu__link js-options-page-button"
+            >Options</a
+          >
+        </li>
+      </ul>
 
-    <span class="b-value-info js-value-info"></span>
-</header>
+      <span class="b-value-info js-value-info"></span>
+    </header>
 
-<nav class="b-nav b-nav_hidden-on-small js-nav-block">
-
-    <div class="b-storage-selector">
+    <nav class="b-nav b-nav_hidden-on-small js-nav-block">
+      <div class="b-storage-selector">
         <select class="b-storage-selector__select js-select-storage">
-            <option value="localStorage">localStorage</option>
-            <option value="sessionStorage">sessionStorage</option>
+          <option value="localStorage">localStorage</option>
+          <option value="sessionStorage">sessionStorage</option>
         </select>
-    </div>
+      </div>
 
-    <ul class="b-keys-menu js-key-list">
+      <ul class="b-keys-menu js-key-list">
         <!-- KEYS HERE -->
-    </ul>
+      </ul>
 
-    <div class="b-nav-footer js-footer">
+      <div class="b-nav-footer js-footer">
         <button class="b-nav-footer__btn b-nav-footer__btn_left js-remove-btn">
-            <i class="fa fa-lg fa-remove"></i>
+          <i class="fa fa-lg fa-remove"></i>
         </button>
 
         <button class="b-nav-footer__btn b-nav-footer__btn_right js-reload-btn">
-            <i class="fa fa-lg fa-refresh"></i>
+          <i class="fa fa-lg fa-refresh"></i>
         </button>
-    </div>
-</nav>
+      </div>
+    </nav>
 
-<main class="b-main b-main_no-margin-on-small">
-    <div class="b-json-view-tools b-json-view-tools_hidden js-json-view-tools">
+    <main class="b-main b-main_no-margin-on-small">
+      <div
+        class="b-json-view-tools b-json-view-tools_hidden js-json-view-tools"
+      >
         <button class="b-json-view-tools__item" data-json-view-action="collapse">
-            Collapse
+          Collapse
         </button>
         <button class="b-json-view-tools__item" data-json-view-action="expand">
-            Expand
+          Expand
         </button>
-        <button class="b-json-view-tools__item" data-json-view-action="toggle" data-json-view-level="2">
-            Toggle level two
+        <button
+          class="b-json-view-tools__item"
+          data-json-view-action="toggle"
+          data-json-view-level="2"
+        >
+          Toggle level two
         </button>
-        <button class="b-json-view-tools__item" data-json-view-action="toggle" data-json-view-level="3">
-            Toggle level three
+        <button
+          class="b-json-view-tools__item"
+          data-json-view-action="toggle"
+          data-json-view-level="3"
+        >
+          Toggle level three
         </button>
-    </div>
+      </div>
 
-    <pre class="b-value-view js-value-view">
+      <pre class="b-value-view js-value-view">
     <!-- JSON VIEW HERE -->
     </pre>
-    <span class="b-value-view__initial-text js-initial-text"></span>
-</main>
+      <span class="b-value-view__initial-text js-initial-text"></span>
+    </main>
 
-<!-- build:vendor-script -->
-<script src="node_modules/jquery/dist/jquery.min.js"></script>
-<script src="node_modules/jquery-jsonview/dist/jquery.jsonview.js"></script>
-<script src="node_modules/mark.js/dist/jquery.mark.min.js"></script>
-<!-- endbuild -->
+    <!-- build:vendor-script -->
+    <script src="node_modules/jquery/dist/jquery.min.js"></script>
+    <script src="node_modules/jquery-jsonview/dist/jquery.jsonview.js"></script>
+    <script src="node_modules/mark.js/dist/jquery.mark.min.js"></script>
+    <!-- endbuild -->
 
-<script src="js/StorageDriver.js"></script>
-<script src="js/panel.js"></script>
-</body>
+    <script src="js/StorageDriver.js"></script>
+    <script src="js/panel.js"></script>
+  </body>
 </html>

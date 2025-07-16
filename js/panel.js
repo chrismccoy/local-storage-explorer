@@ -1,18 +1,56 @@
 /**
- * Application class for DevTools panel
+ * @class WebStorageExplorer
+ * @description Main application class for the DevTools panel. It handles fetching,
+ * parsing, and displaying web storage data (localStorage and sessionStorage).
  */
 class WebStorageExplorer {
+  /**
+   * @property {StorageDriver} storageDriver - Instance for interacting with the inspected window's storage.
+   */
   storageDriver = new StorageDriver();
+  /**
+   * @property {Map<string, {value: any, len: number, type: string}>} storage - A map to hold the parsed storage data.
+   */
   storage = new Map();
+  /**
+   * @property {string[]} keyList - An array of keys from the current storage.
+   */
   keyList = [];
+  /**
+   * @property {object} constants - An object to store non-changing values like element heights.
+   * @private
+   */
   constants = {};
+  /**
+   * @property {object} el - A cache for frequently accessed DOM elements.
+   * @private
+   */
   el = {};
+  /**
+   * @property {string} currentStorageName - The name of the currently displayed storage ('localStorage' or 'sessionStorage').
+   */
   currentStorageName = DEFAULT_STORAGE;
+  /**
+   * @property {boolean} isNavFloating - Tracks if the navigation sidebar is in a floating state.
+   */
   isNavFloating = false;
+  /**
+   * @property {string} lastShownKey - The key of the last item viewed by the user.
+   */
   lastShownKey = "";
+  /**
+   * @property {number} lastShownKeyIndex - The index in `keyList` of the last shown key.
+   */
   lastShownKeyIndex = -1;
+  /**
+   * @property {boolean} loadedByUpdate - A flag to indicate if the data was reloaded by a user action (e.g., refresh button).
+   */
   loadedByUpdate = false;
 
+  /**
+   * @constructor
+   * Initializes the class, waiting for the DOM to be ready before executing the main logic.
+   */
   constructor() {
     // The 'ready' event ensures the DOM is fully loaded
     if (document.readyState === "loading") {
@@ -22,6 +60,11 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method init
+   * @description Asynchronous initialization sequence for the application.
+   * @async
+   */
   async init() {
     this._loadSettings();
     this._selectElements();
@@ -31,11 +74,21 @@ class WebStorageExplorer {
     await this.update();
   }
 
+  /**
+   * @method _loadSettings
+   * @description Loads the preferred storage type from localStorage.
+   * @private
+   */
   _loadSettings() {
     this.currentStorageName =
       localStorage.getItem("storage") || DEFAULT_STORAGE;
   }
 
+  /**
+   * @method _selectElements
+   * @description Queries the DOM and caches necessary element references in `this.el`.
+   * @private
+   */
   _selectElements() {
     const qs = (selector) => document.querySelector(selector);
     this.el = {
@@ -61,6 +114,12 @@ class WebStorageExplorer {
     };
   }
 
+  /**
+   * @method retrieveStorage
+   * @description Fetches storage data from the inspected page for the given storage type.
+   * @param {string} storageType - The type of storage to retrieve ('localStorage' or 'sessionStorage').
+   * @async
+   */
   async retrieveStorage(storageType) {
     this.currentStorageName = ["localStorage", "sessionStorage"].includes(
       storageType
@@ -84,6 +143,13 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method _parseAndRenderStorage
+   * @description Parses the raw storage object, populates the internal storage map, and renders the key list.
+   * @param {object} parsedStorage - The key-value object from the inspected page.
+   * @param {number} startTime - The timestamp from `performance.now()` when the retrieval began.
+   * @private
+   */
   _parseAndRenderStorage(parsedStorage, startTime) {
     this.storage.clear();
     this.keyList = Object.keys(parsedStorage);
@@ -91,7 +157,8 @@ class WebStorageExplorer {
     if (this.keyList.length) {
       this.keyList.forEach((key) => {
         const rawValue = parsedStorage[key];
-        const parsedValue = WebStorageExplorer.tryParseJSON(rawValue) ?? rawValue;
+        const parsedValue =
+          WebStorageExplorer.tryParseJSON(rawValue) ?? rawValue;
         this.storage.set(key, {
           value: parsedValue,
           len: rawValue.length,
@@ -109,6 +176,11 @@ class WebStorageExplorer {
     this._checkForLastKey();
   }
 
+  /**
+   * @method _renderStorageKeys
+   * @description Generates the HTML for the list of storage keys and injects it into the DOM.
+   * @private
+   */
   _renderStorageKeys() {
     const linksTemplate = this.keyList
       .map((key) => {
@@ -133,6 +205,12 @@ class WebStorageExplorer {
     this.el.keyList.innerHTML = linksTemplate;
   }
 
+  /**
+   * @method _showStorageInfo
+   * @description Updates the storage selection dropdowns to show the number of items in each storage.
+   * @param {object} storageInfo - An object containing item counts for `ls` and `ss`.
+   * @private
+   */
   _showStorageInfo(storageInfo) {
     if (storageInfo && storageInfo.ls !== undefined) {
       const lsOption = this.el.selectStorage.querySelector(
@@ -146,6 +224,11 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method _setHandlers
+   * @description Attaches all necessary event listeners for the application's UI.
+   * @private
+   */
   _setHandlers() {
     // Event delegation for key list clicks
     this.el.keyList.addEventListener("click", (e) => {
@@ -153,8 +236,12 @@ class WebStorageExplorer {
       if (!link) return;
 
       e.preventDefault();
-      this.el
-        .keyList.querySelector(".b-keys-menu__link_active").classList.remove("b-keys-menu__link_active");
+      const currentActive = this.el.keyList.querySelector(
+        ".b-keys-menu__link_active"
+      );
+      if (currentActive) {
+        currentActive.classList.remove("b-keys-menu__link_active");
+      }
       link.classList.add("b-keys-menu__link_active");
 
       const key = link.dataset.key;
@@ -261,27 +348,50 @@ class WebStorageExplorer {
     );
   }
 
+  /**
+   * @method _createConstants
+   * @description Calculates and stores layout-related constants to avoid re-computation.
+   * @private
+   */
   _createConstants() {
     this.constants.footerHeight = this.el.footer.offsetHeight;
     this.constants.storageSelectHeight = this.el.selectStorage.offsetHeight;
     Object.freeze(this.constants);
   }
 
+  /**
+   * @method updateUI
+   * @description Syncs the UI state with the application's current state.
+   */
   updateUI() {
     this.el.selectStorage.value = this.currentStorageName;
   }
 
+  /**
+   * @method update
+   * @description Triggers a full refresh of the storage data from the inspected page.
+   * @async
+   */
   async update() {
     this.loadedByUpdate = true;
     await this.retrieveStorage(this.currentStorageName);
   }
 
+  /**
+   * @method toggleNavView
+   * @description Toggles the visibility of the floating navigation sidebar and page overlay.
+   */
   toggleNavView() {
     this.el.navBlock.classList.toggle("b-nav_shown");
     this.el.pageOverlay.classList.toggle("b-page-overlay_hidden");
     this.isNavFloating = this.el.navBlock.classList.contains("b-nav_shown");
   }
 
+  /**
+   * @method clear
+   * @description Resets the UI and internal data structures.
+   * @param {boolean} [shouldSaveLastShownKey=false] - If true, the last selected key is preserved for re-selection.
+   */
   clear(shouldSaveLastShownKey = false) {
     this.storage.clear();
     if (!shouldSaveLastShownKey) {
@@ -294,6 +404,11 @@ class WebStorageExplorer {
     this.el.jsonViewTools.classList.add("b-json-view-tools_hidden");
   }
 
+  /**
+   * @method showValueForKey
+   * @description Displays the value and metadata for a given storage key.
+   * @param {string} key - The key of the item to display.
+   */
   showValueForKey(key) {
     const data = this.storage.get(key);
     if (!data) return;
@@ -318,6 +433,13 @@ class WebStorageExplorer {
     this._showInfoForValue(type, len);
   }
 
+  /**
+   * @method _showInfoForValue
+   * @description Displays metadata (type and length) for the currently shown value.
+   * @param {string} type - The data type of the value.
+   * @param {number} len - The length of the raw string value.
+   * @private
+   */
   _showInfoForValue(type, len) {
     this.el.valueInfo.innerHTML = `
       <span class="b-value-info__property">Type: <b>${type}</b></span>
@@ -325,6 +447,11 @@ class WebStorageExplorer {
     `;
   }
 
+  /**
+   * @method _checkForLastKey
+   * @description After a data refresh, attempts to re-select the previously viewed key.
+   * @private
+   */
   _checkForLastKey() {
     if (this.loadedByUpdate) {
       this.loadedByUpdate = false;
@@ -336,14 +463,26 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method _tryToShowLastKey
+   * @description Re-selects and displays the last shown key if it still exists after a refresh.
+   * @private
+   */
   _tryToShowLastKey() {
     this.showValueForKey(this.lastShownKey);
     const link = this.el.keyList.querySelector(
       `.js-select-key[data-key="${this.lastShownKey}"]`
     );
-    link.classList.add("b-keys-menu__link_active");
+    if (link) {
+      link.classList.add("b-keys-menu__link_active");
+    }
   }
 
+  /**
+   * @method _tryToSelectNextKey
+   * @description If the last shown key was deleted, this attempts to select an adjacent key.
+   * @private
+   */
   _tryToSelectNextKey() {
     if (this.lastShownKeyIndex !== -1 && this.keyList.length) {
       this.lastShownKeyIndex = Math.min(
@@ -356,11 +495,19 @@ class WebStorageExplorer {
         const link = this.el.keyList.querySelector(
           `.js-select-key[data-key="${key}"]`
         );
-        link.classList.add("b-keys-menu__link_active");
+        if (link) {
+          link.classList.add("b-keys-menu__link_active");
+        }
       }
     }
   }
 
+  /**
+   * @method _showInitialText
+   * @description Displays a message in the value view area, such as load time or an "empty" message.
+   * @param {number} loadTime - The time in milliseconds it took to load the storage data.
+   * @private
+   */
   _showInitialText(loadTime) {
     if (!this.lastShownKey) {
       if (this.storage.size) {
@@ -376,6 +523,11 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method _updateFooterPosition
+   * @description Adjusts the footer's CSS class based on whether the key list is overflowing its container.
+   * @private
+   */
   _updateFooterPosition() {
     const isOverflowing =
       this.el.keyList.offsetHeight >=
@@ -385,6 +537,12 @@ class WebStorageExplorer {
     this.el.footer.classList.toggle("b-nav-footer_no-bottom", isOverflowing);
   }
 
+  /**
+   * @method handleSearch
+   * @description Uses mark.js to highlight or clear search terms in the value view.
+   * @param {string} action - The search action to perform ('performSearch' or other).
+   * @param {string} keyword - The keyword to search for.
+   */
   handleSearch(action, keyword) {
     const $valueView = $(this.el.valueView); // jQuery needed for mark.js
     $valueView.unmark();
@@ -393,6 +551,13 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method tryParseJSON
+   * @description Safely attempts to parse a string as JSON.
+   * @param {string} strJSON - The string to parse.
+   * @returns {object|null} The parsed object, or null if parsing fails or is not applicable.
+   * @static
+   */
   static tryParseJSON(strJSON) {
     try {
       // Avoid parsing simple numbers and booleans that are valid JSON
@@ -409,6 +574,13 @@ class WebStorageExplorer {
     }
   }
 
+  /**
+   * @method guessType
+   * @description Determines the likely data type of a value.
+   * @param {*} val - The value to inspect.
+   * @returns {string} The guessed type (e.g., 'object', 'array', 'string').
+   * @static
+   */
   static guessType(val) {
     if (val === null) return "null";
     if (Array.isArray(val)) return "array";
@@ -423,3 +595,19 @@ class WebStorageExplorer {
 
 // Initialize the app
 window.App = new WebStorageExplorer();
+
+/**
+ * Sets the keyboard shortcut hint based on the user's operating system.
+ */
+document.addEventListener("DOMContentLoaded", () => {
+  const kbdEl = document.querySelector(".shortcut");
+  if (!kbdEl) return;
+
+  // Use modern userAgentData with a fallback for compatibility
+  const isMac =
+    (navigator.userAgentData &&
+      navigator.userAgentData.platform.toLowerCase() === "macos") ||
+    navigator.platform.toLowerCase().includes("mac");
+
+  kbdEl.textContent = isMac ? "Command+Option+I" : "Control+Shift+I";
+});
